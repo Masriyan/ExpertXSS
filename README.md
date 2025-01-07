@@ -74,7 +74,7 @@ Install dependencies manually or via a requirements file (if provided).
 -   **Install dependencies**:
       `pip install -r requirements.txt` 
 -   **Run the tool**:
-       `python xss_scanner.py`
+       `python ExpertXSS.py`
 ## Usage
 
 ### Command-Line Arguments
