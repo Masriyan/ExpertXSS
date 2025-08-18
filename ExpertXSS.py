@@ -118,7 +118,6 @@ def dedupe_lines(text: str) -> List[str]:
 
 
 # Remote fetch with conditional headers (ETag/Last-Modified)
-
 def fetch_remote_file(url: str, local_file: str, header_cache_file: str) -> List[str]:
     headers = {}
     etag = None
@@ -438,7 +437,7 @@ class Crawler:
                     continue
                 val = inp.get("value", "")
                 inputs[name] = val
-            loc = "form" if method in ("GET", "POST") else "form"
+            loc = "form"
             self.targets.append(Target(url=form_url, method=method, params=inputs, location=loc,
                                        form_meta={"action": action, "method": method}))
 
@@ -739,7 +738,8 @@ def run_scan(args: argparse.Namespace):
         backoff=args.backoff,
     )
 
-    if not args.no_waf_check:
+    # Safe access in case a user runs an older copy without the flag
+    if not getattr(args, "no_waf_check", False):
         check_waf(session, args.url)
 
     # Discover targets
@@ -772,7 +772,6 @@ def run_scan(args: argparse.Namespace):
     scanner = Scanner(session=session, encode_mode=args.encode, delay=args.delay)
 
     log_info("[phase 1] Reflection discovery")
-    reflect_candidates: List[Tuple[Target, Finding]] = []
 
     with concurrent.futures.ThreadPoolExecutor(max_workers=args.concurrency) as ex:
         futs = []
@@ -786,14 +785,7 @@ def run_scan(args: argparse.Namespace):
             if isinstance(res, list):
                 reporter.extend(res)
             elif isinstance(res, Finding):
-                reflect_candidates.append((targets[0], res)) if res else None
                 reporter.add(res)
-
-    # Build a map of param candidates per URL for phase 2
-    url_param_map: Dict[str, List[str]] = {}
-    for t in targets:
-        if t.params:
-            url_param_map.setdefault((t.url, t.method, t.location), list(t.params.keys()))
 
     log_info("[phase 2] Targeted payload testing")
     with concurrent.futures.ThreadPoolExecutor(max_workers=args.concurrency) as ex:
@@ -864,6 +856,7 @@ def main():
     ap.add_argument("--concurrency", type=int, default=6, help="Concurrent workers")
     ap.add_argument("--max-payloads", type=int, help="Limit number of payloads per param (speeds up scans)")
     ap.add_argument("--test-headers", action="store_true", help="Try header-based reflection (Referer, XFF, etc.)")
+    ap.add_argument("--no-waf-check", action="store_true", help="Skip WAF detection pre-check")
 
     # Payloads & Logging
     ap.add_argument("--payload-file", help="Custom payload file path")
